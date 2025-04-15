@@ -125,6 +125,32 @@ read_controls <- function(path){
     filter(checkAlleleCounts(matrix(c(hom_ref, het, hom_alt),ncol = 3), maf = 0.05, mac=10)) 
 }
 
+read_cases <- function(path){
+  df <- read.csv(path, sep= ' ', header = F) 
+  
+  colnames(df) <- c('chr', 'pos', 'X', 'ref_gt', 'alt_gt', 'unknown', 'hom_ref', 'het', 'hom_alt', 'alt_sum')
+  df <- df %>% 
+    mutate(chr_pos = paste0('chr',chr,':',pos)) %>% 
+    mutate(chr_pos_gt =paste0(chr_pos, ':', ref_gt, ' ', alt_gt)) %>% 
+    group_by(chr_pos_gt) %>% 
+    summarise(hom_ref = sum(hom_ref),
+              het = sum(het),
+              hom_alt = sum(hom_alt)) %>% 
+    filter(checkAlleleCounts(matrix(c(hom_ref, het, hom_alt),ncol = 3), maf = 0.05, mac=10)) 
+  df
+
+}
+
+do_regr <- function(cases, controls){
+  merge(cases, controls, by = 'chr_pos_gt') %>% 
+    rowwise() %>% 
+    mutate(p_regr = linearReg(c(hom_ref.x, het.x, hom_alt.x), c(hom_ref.y, het.y, hom_alt.y))$pval,
+           p_fisher = fisher.test(rbind(c(hom_ref.x, het.x, hom_alt.x), c(hom_ref.y, het.y, hom_alt.y)))$p.value,
+           p_chisq = chisq.test(rbind(c(hom_ref.x, het.x, hom_alt.x), c(hom_ref.y, het.y, hom_alt.y)))$p.value) %>% 
+    ungroup() %>% 
+    mutate(p_regr_adj = p.adjust(p_regr, method = 'BH'))
+}
+
 
 # Imputed
 ## Cluster 1
