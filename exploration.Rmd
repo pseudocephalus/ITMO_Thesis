@@ -1,0 +1,125 @@
+---
+title: "Predicting Genetic Variants with Discordant Post-Imputation Allele Frequency"
+output:
+  word_document: default
+  html_document: default
+date: "2025-04-15"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = F)
+```
+
+```{r}
+library(flextable)
+library(officer)
+library(ggplot2)
+library(ggman)
+library(dplyr)
+library(stringr)
+```
+
+
+```{r}
+df <- read.csv('results_full_annotated.csv')
+```
+
+
+# MAF density 
+```{r}
+
+ggplot(df, aes(x = MAF, fill =type)) +
+  geom_density(alpha = 0.6) +
+  labs(title = "MAF distribution",
+       x = "Minor Allele Frequency (MAF)",
+       y = "Probability density") +
+  theme_minimal() +
+  scale_fill_manual(values = c("imputed" = "skyblue", "typed" = "salmon"))
+```
+# MAF and R2 statistics
+
+```{r}
+
+df %>% group_by(type, cluster) %>% 
+  summarise(MAF = round(mean(MAF),3),
+            R2 = round(mean(R2),3)) %>% 
+  flextable() %>% 
+  merge_v(j = 1) %>% 
+
+    border(border.bottom = fp_border()) %>%
+    valign(i = NULL, j = NULL, valign = "top", part = "all") %>%
+    hline(i=1, border = fp_border_default(width = 1.5), part = 'header') %>%
+    bold(bold = TRUE, part = "header") %>%
+    vline() %>%
+    vline_left() %>%
+    align(align='left', part='all') %>%
+    font(fontname = 'Times New Roman', part = "all") %>%
+    fontsize(size = 12, part = "all") %>%
+    padding(padding = 0, part = 'all') %>%
+    set_table_properties(width = 1, layout = "autofit") %>% 
+  theme_zebra()
+```
+
+
+# Manhattan 
+
+```{r fig.width=10, fig.height=7, dpi=300}
+df$chr <- str_extract(df$chr_pos_gt, '(chr.*?):', group = 1)
+df$pos <- str_extract(df$chr_pos_gt, 'chr.*?:([0-9]*)?:', group = 1)
+
+ggman(df, 
+      snp = "snp", 
+      bp = "pos", 
+      chrom = "chr", 
+      pvalue = "p_regr_adj", 
+      relative.positions = TRUE,
+      sigLine = 1.30103) + 
+  geom_point(size = 1.5) +
+  facet_wrap(.~type, nrow = 2) +
+  theme_minimal(base_size = 14) +
+  scale_color_manual(values = c("black", "coral")) +
+  ylim(0, max(-log10(df$p_regr_adj))) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+
+```
+# MAF vs pvals
+
+```{r}
+ggplot(df, aes(x = MAF, y = -log10(p_regr))) +
+  facet_grid(.~type)+
+  geom_point() +
+  #geom_smooth(method = "lm", se = FALSE, color = "black") +
+  labs(title = "Correlation between MAF and p-value for Association",
+       x = "Minor Allele Frequency (MAF)",
+       y = "p-value for Association") +
+  theme_minimal()
+```
+
+# R2 and MAF
+
+```{r fig.width=7, fig.height=4}
+ggplot(df %>% filter(type == 'imputed'), aes(x = MAF, y = R2)) +
+  facet_grid(.~type)+
+  geom_point() +
+  #geom_smooth(method = "lm", se = FALSE, color = "black") +
+  labs(title = "R^2 and p-value for Association",
+       x = "Minor Allele Frequency (MAF)",
+       y = "Imputation quality (R^2)") +
+  theme_minimal()
+```
+
+
+# R2 and pvals
+
+```{r}
+ggplot(df, aes(x = R2, y = -log10(p_regr))) +
+  facet_grid(.~type)+
+  geom_point() +
+  #geom_smooth(method = "lm", se = FALSE, color = "black") +
+  labs(title = "R^2 and p-value for Association",
+       x = "Imputation quality (R^2)",
+       y = "-log10(p value)") +
+  theme_minimal()
+```
+
+
