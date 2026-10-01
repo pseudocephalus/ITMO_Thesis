@@ -8,7 +8,7 @@ linearReg <- function(cases, controls) {
   ws <- c(controls, cases)
   m <- lm(phe ~ geno, data = table, weights = ws)
   m$df.residual <- sum(ws) - 2
-  ks <- summary(m)$coefficients
+  ks <- suppressWarnings(summary(m))$coefficients  # df.residual is overridden on purpose
   list(beta = ks[2, 1], pval = ks[2, 4])
 }
 
@@ -152,57 +152,23 @@ do_regr <- function(cases, controls){
 }
 
 
-# Imputed
-## Cluster 1
-controls_imp1 <- read_controls('controls_counts/counts_imputed_1.tsv') 
-cases_imp1 <- read_cases('case_counts/counts_imputed_1') 
-res_imp1 <- do_regr(cases_imp1, controls_imp1)
-#plot_lam(res_imp1$p_regr, 'Cluster 1; imputed variants')
-## Cluster 2
-controls_imp2 <- read_controls('controls_counts/counts_imputed_2.tsv') 
-cases_imp2<- read_cases('case_counts/counts_imputed2') 
-res_imp2 <- do_regr(cases_imp2, controls_imp2)
-## Cluster 3
-controls_imp3 <- read_controls('controls_counts/counts_imputed_3.tsv') 
-cases_imp3 <- read_cases('case_counts/counts_imputed3') 
-res_imp3 <- do_regr(cases_imp3, controls_imp3)
+# Run association tests for every variant type and ancestry cluster
+clusters <- sort(as.integer(sub("counts_imputed_([0-9]+)$", "\\1",
+                                list.files("case_counts", pattern = "^counts_imputed_[0-9]+$"))))
+if (length(clusters) == 0) stop("No case counts found in case_counts/. Run QC_and_filtering.sh first.")
 
-# Typed
-## Cluster 1
-controls_typed1 <- read_controls('controls_counts/counts_typed_1.tsv') 
-cases_typed1<- read_cases('case_counts/counts_typed_1') 
-res_typed1 <- do_regr(cases_typed1, controls_typed1)
-## Cluster 2
-controls_typed2 <- read_controls('controls_counts/counts_typed_2.tsv') 
-cases_typed2<- read_cases('case_counts/counts_typed_2') 
-res_typed2 <- do_regr(cases_typed2, controls_typed2)
-## Cluster 3
-controls_typed3 <- read_controls('controls_counts/counts_typed_3.tsv') 
-cases_typed3 <- read_cases('case_counts/counts_typed_3') 
-res_typed3 <- do_regr(cases_typed3, controls_typed3)
-
-# output
-res_imp1 <- res_imp1 %>% 
-  mutate(type = 'imputed',
-         cluster = 1)
-res_imp2 <- res_imp2 %>% 
-  mutate(type = 'imputed',
-         cluster = 2)
-res_imp3 <- res_imp3 %>% 
-  mutate(type = 'imputed',
-         cluster = 3)
-res_typed1 <- res_typed1 %>% 
-  mutate(type = 'typed',
-         cluster = 1)
-res_typed2 <- res_typed2 %>% 
-  mutate(type = 'typed',
-         cluster = 2)
-res_typed3 <- res_typed3 %>% 
-  mutate(type = 'typed',
-         cluster = 3)
-
-res_full<- rbind(res_imp1, res_imp2, res_imp3, 
-                 res_typed1, res_typed2, res_typed3) 
+res_list <- list()
+for (type in c("imputed", "typed")) {
+  for (cl in clusters) {
+    controls_file <- file.path("controls_counts", paste0("counts_", type, "_", cl, ".tsv"))
+    cases_file    <- file.path("case_counts", paste0("counts_", type, "_", cl))
+    if (!file.exists(controls_file)) stop("Missing SCoRe control counts: ", controls_file)
+    message("Testing ", type, " variants, cluster ", cl)
+    res_list[[paste(type, cl)]] <- do_regr(read_cases(cases_file), read_controls(controls_file)) %>%
+      mutate(type = type, cluster = cl)
+  }
+}
+res_full <- bind_rows(res_list)
 
 
 anns <- read.csv('variant_annotations.csv', header = F)
@@ -217,4 +183,5 @@ anns %>%
 
 
 df <- merge(res_full, anns, by = 'chr_pos_gt')
-write.csv(df, 'results_full_annotated.csv')
+write.csv(df, 'results_full_annotated.csv', row.names = FALSE)
+message('Wrote results_full_annotated.csv (', nrow(df), ' variant tests)')
