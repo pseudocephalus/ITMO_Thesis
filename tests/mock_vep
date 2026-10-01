@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Stand-in for Ensembl VEP used only by tests/run_tests.sh (VEP + cache are ~20 GB).
+# Adds a deterministic CSQ field (Allele|Consequence|IMPACT|SYMBOL|BIOTYPE).
+set -euo pipefail
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -i) IN="$2"; shift 2 ;;
+        -o) OUT="$2"; shift 2 ;;
+        *) shift ;;
+    esac
+done
+bcftools view "$IN" | awk 'BEGIN{OFS="\t"; split("missense_variant synonymous_variant intron_variant stop_gained", c, " "); split("MODERATE LOW MODIFIER HIGH", m, " ")}
+/^##/ {print; next}
+/^#CHROM/ {print "##INFO=<ID=CSQ,Number=.,Type=String,Description=\"Consequence annotations from Ensembl VEP. Format: Allele|Consequence|IMPACT|SYMBOL|BIOTYPE\">"; print; next}
+{k = ($2 % 4) + 1; $8 = $8 ";CSQ=" $5 "|" c[k] "|" m[k] "|GENE" $2 "|protein_coding"; print}' | bgzip -c > "$OUT"

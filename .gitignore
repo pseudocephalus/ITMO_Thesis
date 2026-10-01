@@ -1,0 +1,6 @@
+catboost_info/
+__pycache__/
+.ipynb_checkpoints/
+*.vcf.gz
+*.tbi
+Rplots.pdf
