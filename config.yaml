@@ -1,3 +1,7 @@
+containers:
+  bcftools: "docker://quay.io/biocontainers/bcftools:1.19--h8b25389_0"
+  vep: "docker://ensemblorg/ensembl-vep:release_113.0"
+  r: "docker://ghcr.io/pseudocephalus/itmo-thesis-r:1.0"
 input_vcf: "1000G.imputed.vcf.gz"
 r2_threshold: 0.69
 clusters: [1, 2, 3]

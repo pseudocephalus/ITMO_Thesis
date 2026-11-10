@@ -30,6 +30,8 @@ rule filter_qual:
         "1000G.imputed.filtered.vcf.gz"
     params:
         r2=config["r2_threshold"]
+    container:
+        config["containers"]["bcftools"]
     shell:
         "bcftools view -i 'AF>0 && (R2>{params.r2} || TYPED==1)' {input} -Oz -o {output}"
 
@@ -39,6 +41,8 @@ rule annotate:
         "1000G.imputed.filtered.vcf.gz"
     output:
         "1000G.filtered.vep.vcf.gz"
+    container:
+        config["containers"]["vep"]
     shell:
         "vep --offline --cache --pick --vcf --compress_output gzip --force_overwrite "
         "-i {input} -o {output}"
@@ -51,6 +55,8 @@ rule filter_exome:
         "1000G.imputed.filtered.vep.exome.vcf.gz"
     params:
         csq=CSQ_FILTER
+    container:
+        config["containers"]["bcftools"]
     shell:
         "bcftools view -i '{params.csq}' {input} -Oz -o {output}"
 
@@ -61,6 +67,8 @@ rule split:
     output:
         typed="1000G.imputed.filtered.vep.exome.typed.vcf.gz",
         imputed="1000G.imputed.filtered.vep.exome.imputed.vcf.gz"
+    container:
+        config["containers"]["bcftools"]
     shell:
         """
         bcftools view -i 'TYPED=1' {input} -Oz -o {output.typed}
@@ -73,6 +81,8 @@ rule variant_list:
         "1000G.imputed.filtered.vep.exome.{type}.vcf.gz"
     output:
         "vars_{type}.txt"
+    container:
+        config["containers"]["bcftools"]
     shell:
         r"bcftools query -f '%CHROM:%POS %REF %ALT\n' {input} > {output}"
 
@@ -85,6 +95,8 @@ rule score_clustering:
     output:
         "1000G.yaml",
         expand("1000G_ids{cluster}.txt", cluster=config["clusters"])
+    container:
+        config["containers"]["r"]
     shell:
         "Rscript {input.script} {input.vcf} {input.samples}"
 
@@ -94,6 +106,8 @@ rule get_annotations:
         "1000G.imputed.filtered.vep.exome.vcf.gz"
     output:
         "variant_annotations.csv"
+    container:
+        config["containers"]["bcftools"]
     shell:
         r"bcftools query -f '%ID,chr%CHROM,%POS,%REF,%ALT,%R2,%MAF,%CSQ\n' {input} > {output}"
 
@@ -104,6 +118,8 @@ rule cluster_subset:
         ids="1000G_ids{cluster}.txt"
     output:
         "1000G.imputed.filtered.vep.exome.{type}.cluster{cluster}.vcf.gz"
+    container:
+        config["containers"]["bcftools"]
     shell:
         "bcftools view -S {input.ids} {input.vcf} -Oz -o {output}"
 
@@ -114,6 +130,8 @@ rule count_genotypes:
         script="scripts/count_genotypes.awk"
     output:
         "case_counts/counts_{type}_{cluster}"
+    container:
+        config["containers"]["bcftools"]
     shell:
         "bcftools view -H {input.vcf} | awk -f {input.script} > {output}"
 
@@ -128,5 +146,7 @@ rule gwas:
         script="scripts/GWAS.R"
     output:
         "results_full_annotated.csv"
+    container:
+        config["containers"]["r"]
     shell:
         "Rscript {input.script}"

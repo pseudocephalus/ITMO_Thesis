@@ -18,6 +18,7 @@ sequencing data, which leads to false-positive associations. This project:
 | File | Description |
 |---|---|
 | `Snakefile` | Pipeline for QC, VEP annotation, coding-variant filtering, typed/imputed split, per-cluster genotype counts. Calls `SCoRe.R` and `GWAS.R`. For details, see section "Snakemake pipeline".|
+| `Dockerfile` | R environment (R 4.4.2, tidyverse, SVDFunctions) for `SCoRe.R` and `GWAS.R`; published as `ghcr.io/pseudocephalus/itmo-thesis-r:1.0` |
 | `config.yaml` | input path, R² threshold, CSQ terms, cluster list. Parameters live in `config.yaml` and can be overridden on the command line: `snakemake -c 4 --config r2_threshold=0.8`|
 | `scripts/SCoRe.R` | Ancestry PCA and clustering ([SVDFunctions](https://github.com/alexloboda/SVDFunctions)); writes the SCoRe input `1000G.yaml` |
 | `scripts/GWAS.R` | Case–control association tests against SCoRe controls; writes `results_full_annotated.csv` |
@@ -28,6 +29,7 @@ sequencing data, which leads to false-positive associations. This project:
 ## Requirements
 
 Tested with Snakemake 9.27.1, bcftools 1.19, Ensembl VEP v113 (offline cache), R 4.4 and Python 3.10.
+With containers, the only requirements are Snakemake and Apptainer. Each rule runs in a pinned image (bcftools, Ensembl VEP, and the R image built from Dockerfile); see containers in config.yaml. VEP still needs its offline cache in ~/.vep.
 
 - R packages: `SVDFunctions` (`devtools::install_github("alexloboda/SVDFunctions")`), `dplyr`, `stringr`,
   plus `ggplot2`, `ggman`, `flextable`, `officer` for `exploration.Rmd`
@@ -40,7 +42,7 @@ Run all commands from the repository folder.
 1. Put the imputed VCF (Minimac-style `R2` and `TYPED` INFO fields) in the folder as `1000G.imputed.vcf.gz`.
 2. Run QC and clustering with snakemake (asking for specific outputs):
    ```bash
-   snakemake -c 4 1000G.yaml vars_typed.txt vars_imputed.txt variant_annotations.csv
+   snakemake --sdm apptainer -c 4 1000G.yaml vars_typed.txt vars_imputed.txt variant_annotations.csv
    ```
    This writes 1000G.yaml, vars_typed.txt, vars_imputed.txt and variant_annotations.csv.
 3. On the SCoRe platform, submit `1000G.yaml` with `vars_typed.txt` (default QC filters).
@@ -49,7 +51,7 @@ Run all commands from the repository folder.
    (same `controls_counts/` folder).
 5. Compute per-cluster genotype counts and run the association analysis (the rest of the pipeline):
    ```bash
-   snakemake -c 4
+   snakemake --sdm apptainer -c 4
    ```
    The result is `results_full_annotated.csv`; explore it with `exploration.Rmd`.
 6. Model training is in `training.ipynb`. No data is included in this repository. The notebook
