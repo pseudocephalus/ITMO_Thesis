@@ -65,3 +65,5 @@ Run all commands from the repository folder.
 
 - The control counts in `controls_counts/` come from the SCoRe web platform (steps 3–4), so they don’t appear in the graph.
 - The number of ancestry clusters is set in `config.yaml` (clusters) and has to match what `SCoRe.R` produces.
+
+![CI](https://github.com/pseudocephalus/ITMO_Thesis/actions/workflows/ci.yml/badge.svg)
